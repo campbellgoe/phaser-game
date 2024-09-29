@@ -8,6 +8,7 @@ class SimpleGame extends Phaser.Scene {
     private moveSound!: Howl;
     private soundPlaying: boolean = false;
     private isJumping: boolean = false;
+    private moveDirection: 'left' | 'right' | null = null; // To track the current movement direction
 
     constructor() {
         super('simple-game');
@@ -27,7 +28,7 @@ class SimpleGame extends Phaser.Scene {
         (this.box.body as Phaser.Physics.Arcade.Body).setGravityY(300);
 
         // Create the floor (static object)
-        this.floors = Array.from({ length: 4 }).map((_, i) => 
+        this.floors = Array.from({ length: 4 }).map((_, i) =>
             this.add.rectangle(400 * i + 100 * i, 580, 400, 40, 0x00ff00)
         );
         this.floors.forEach(floor => {
@@ -59,20 +60,35 @@ class SimpleGame extends Phaser.Scene {
         // Respawn if the box falls off the bottom of the screen
         if (boxBody.y > this.cameras.main.height) {
             boxBody.reset(400, 300); // Reset position
+            boxBody.setVelocity(0, 0); // Reset velocity to stop any momentum
         }
 
         // Reset horizontal velocity
         boxBody.setVelocityX(0);
 
-        // Left and right movement
-        if (this.cursors?.left?.isDown) {
-            // Move left
+        // Direction logic to prioritize first key pressed and prevent changing directions while holding both keys
+        if (this.cursors?.left?.isDown && this.cursors?.right?.isDown) {
+            // If both keys are pressed, keep moving in the current direction
+            if (this.moveDirection === 'left') {
+                boxBody.setVelocityX(-160); // Continue moving left
+                isWalking = true;
+            } else if (this.moveDirection === 'right') {
+                boxBody.setVelocityX(160); // Continue moving right
+                isWalking = true;
+            }
+        } else if (this.cursors?.left?.isDown) {
+            // Move left and set the movement direction
+            this.moveDirection = 'left';
             boxBody.setVelocityX(-160);
             isWalking = true;
         } else if (this.cursors?.right?.isDown) {
-            // Move right
+            // Move right and set the movement direction
+            this.moveDirection = 'right';
             boxBody.setVelocityX(160);
             isWalking = true;
+        } else {
+            // Reset direction when no key is pressed
+            this.moveDirection = null;
         }
 
         // Jumping - Allow jumping only if the character is touching the floor
