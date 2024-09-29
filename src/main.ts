@@ -3,7 +3,7 @@ import { Howl } from 'howler';
 
 class SimpleGame extends Phaser.Scene {
     private box!: Phaser.GameObjects.Rectangle;
-    private floor!: Phaser.GameObjects.Rectangle;
+    private floors!: Phaser.GameObjects.Rectangle[];
     private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
     private moveSound!: Howl;
     private soundPlaying: boolean = false;
@@ -21,17 +21,21 @@ class SimpleGame extends Phaser.Scene {
         // Create a box (rectangle)
         this.box = this.add.rectangle(400, 300, 50, 50, 0xffff00);
         this.physics.add.existing(this.box);
-        (this.box.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+        // (this.box.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
 
         // Enable gravity
         (this.box.body as Phaser.Physics.Arcade.Body).setGravityY(300);
 
         // Create the floor (static object)
-        this.floor = this.add.rectangle(400, 580, 800, 40, 0x00ff00);
-        this.physics.add.existing(this.floor, true); // 'true' makes it static
-
-        // Add collision between the box and the floor
-        this.physics.add.collider(this.box, this.floor);
+        this.floors = Array.from({ length: 4 }).map((_, i) => 
+            this.add.rectangle(400 * i + 100 * i, 580, 400, 40, 0x00ff00)
+        );
+        this.floors.forEach(floor => {
+            // 'true' makes it static
+            this.physics.add.existing(floor, true);
+            // Add collision between the box and the floor
+            this.physics.add.collider(this.box, floor);
+        });
 
         // Capture keyboard arrow keys
         this.cursors = this.input.keyboard?.createCursorKeys();
@@ -42,28 +46,41 @@ class SimpleGame extends Phaser.Scene {
             volume: 1,
             src: ['walk.wav'], // Add your move sound file here
         });
+
+        // Make the camera follow the box
+        this.cameras.main.startFollow(this.box, true, 0.05, 0.05);  // Slight easing on follow
+        this.cameras.main.setBounds(0, 0, 1600, 600);  // Set camera bounds
     }
 
     update(): void {
         const boxBody = this.box.body as Phaser.Physics.Arcade.Body;
         let isWalking = false;
 
+        // Respawn if the box falls off the bottom of the screen
+        if (boxBody.y > this.cameras.main.height) {
+            boxBody.reset(400, 300); // Reset position
+        }
+
         // Reset horizontal velocity
         boxBody.setVelocityX(0);
 
         // Left and right movement
         if (this.cursors?.left?.isDown) {
-            boxBody.setVelocityX(-160); // Move left
+            // Move left
+            boxBody.setVelocityX(-160);
             isWalking = true;
         } else if (this.cursors?.right?.isDown) {
-            boxBody.setVelocityX(160); // Move right
+            // Move right
+            boxBody.setVelocityX(160);
             isWalking = true;
         }
 
         // Jumping - Allow jumping only if the character is touching the floor
         if (this.cursors?.up?.isDown && boxBody.blocked.down && !this.isJumping) {
-            boxBody.setVelocityY(-330); // Jump with upward velocity
-            this.isJumping = true; // Prevent multiple jumps while in the air
+            // Jump with upward velocity
+            boxBody.setVelocityY(-330);
+            // Prevent multiple jumps while in the air
+            this.isJumping = true;
         }
 
         // Reset jump state when the box lands back on the floor
